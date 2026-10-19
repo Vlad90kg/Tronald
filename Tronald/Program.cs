@@ -1,4 +1,4 @@
-using BlazorApp1.Components;
+using Tronald.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
