@@ -1,6 +1,9 @@
+using System.Net;
+
 namespace Tronald.Exceptions;
 
-public interface ApiException
+public class ApiException(string message, HttpStatusCode? statusCode = null, Exception? inner = null)
+    : Exception(message, inner)
 {
-    
+    public HttpStatusCode? StatusCode { get; } = statusCode;
 }
