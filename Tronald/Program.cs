@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddHttpClient<GuardianService>(c =>
+builder.Services.AddHttpClient<IHeadlineService, GuardianService>(c =>
     c.BaseAddress = new Uri("https://content.guardianapis.com/"));
 
 var app = builder.Build();

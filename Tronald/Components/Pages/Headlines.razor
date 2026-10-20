@@ -1,0 +1,57 @@
+@page "/headlines"
+@using Tronald.Exceptions
+@using Tronald.Models
+@using Tronald.Services
+@attribute [StreamRendering]
+@inject IHeadlineService HeadlineService
+
+<PageTitle>Headlines · Tronald</PageTitle>
+<h3>Trump market headlines</h3>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_headlines is null)
+{
+    <p>Loading headlines...</p>
+}
+else if (_headlines.Count == 0)
+{
+    <p>No headlines found for this period.</p>
+}
+else
+{
+    <table class="table">
+        <thead><tr><th>Date</th><th>Headline</th><th>Section</th></tr></thead>
+        <tbody>
+        @foreach (var h in _headlines)
+        {
+            <tr>
+                <td>@h.PublishedAt.ToString("yyyy-MM-dd")</td>
+                <td><a href="@h.Url" target="_blank">@h.Title</a></td>
+                <td>@h.Section</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<Headline>? _headlines;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var to = DateOnly.FromDateTime(DateTime.Today);
+        try
+        {
+            _headlines = await HeadlineService.SearchHeadlinesAsync(
+                "Trump AND (oil OR tariff OR market OR stocks)", to.AddYears(-2), to);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}
