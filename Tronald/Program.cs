@@ -1,10 +1,14 @@
 using Tronald.Components;
+using Tronald.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddHttpClient<GuardianService>(c =>
+    c.BaseAddress = new Uri("https://content.guardianapis.com/"));
 
 var app = builder.Build();
 
