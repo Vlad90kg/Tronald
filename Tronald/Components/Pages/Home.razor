@@ -1,7 +1,124 @@
 ﻿@page "/"
+@using Tronald.Exceptions
+@using Tronald.Models
+@using Tronald.Services
+@attribute [StreamRendering]
+@inject IMarketDataService MarketData
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Tronald · Market Impact Tracker</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="card-tronald p-4 mb-4">
+    <h1 class="display-5 fw-bold">Tronald Market Impact Tracker</h1>
+    <p class="lead text-muted">
+        Does the market move when Trump makes the news? Tronald matches Trump-related headlines
+        from The Guardian with daily prices from FRED and ranks the stories that came with unusual moves.
+    </p>
+    <a class="btn btn-danger btn-lg" href="impact"><span class="bi bi-lightning-charge me-1"></span> Analyse impact</a>
+</div>
 
-Welcome to your new app.
+<h5 class="mb-3">Latest daily close</h5>
+@if (_tickersFailed || _tickers is { Count: 0 })
+{
+    <div class="alert alert-warning">Market data is temporarily unavailable.</div>
+}
+else if (_tickers is null)
+{
+    <p class="text-muted">Loading latest prices...</p>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        @foreach (var t in _tickers)
+        {
+            <div class="col-6 col-md-3">
+                <div class="card-tronald">
+                    <div class="stat-label">@TickerLabels[t.Symbol]</div>
+                    <div class="stat-value">@t.Latest.Close.ToString("N2")</div>
+                    <span class="@(t.Change >= 0 ? "chip-up" : "chip-down")">
+                        @(t.Change >= 0 ? "▲" : "▼") @t.Change.ToString("+0.0%;-0.0%")
+                    </span>
+                    <div class="small text-muted mt-1">@t.Latest.Date.ToString("dd MMM yyyy")</div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <a href="impact" class="text-decoration-none text-reset">
+            <div class="card-tronald h-100">
+                <h5><span class="bi bi-lightning-charge text-danger"></span> Impact ranking</h5>
+                <p class="text-muted mb-0">See which Trump headlines came with the biggest price moves compared to a normal trading day.</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="headlines" class="text-decoration-none text-reset">
+            <div class="card-tronald h-100">
+                <h5><span class="bi bi-newspaper text-warning"></span> Headlines</h5>
+                <p class="text-muted mb-0">Recent Guardian headlines about Trump, oil, tariffs and markets.</p>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4">
+        <a href="market" class="text-decoration-none text-reset">
+            <div class="card-tronald h-100">
+                <h5><span class="bi bi-graph-up text-success"></span> Markets</h5>
+                <p class="text-muted mb-0">Daily prices for oil, the S&amp;P 500, NASDAQ and the VIX from FRED.</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="card-tronald">
+    <h5>How the score works</h5>
+    <ol class="mb-3">
+        <li>Each headline is matched to the first trading day it could affect. News after the US market close counts for the next day.</li>
+        <li>The price change is measured from the previous close to that day's close.</li>
+        <li>The move is divided by the average daily move in the period. A score of 2× means twice a normal day.</li>
+    </ol>
+    <div class="alert alert-warning mb-0">
+        A high score shows that a headline and a market move happened at the same time. It does not prove the headline caused the move.
+    </div>
+</div>
+
+@code {
+    private static readonly Dictionary<MarketSymbol, string> TickerLabels = new()
+    {
+        [MarketSymbol.SP500] = "S&P 500",
+        [MarketSymbol.Nasdaq] = "NASDAQ",
+        [MarketSymbol.WtiOil] = "WTI Crude",
+        [MarketSymbol.Vix] = "VIX"
+    };
+
+    private record Ticker(MarketSymbol Symbol, PricePoint Latest, decimal Change);
+
+    private List<Ticker>? _tickers;
+    private bool _tickersFailed;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var to = DateOnly.FromDateTime(DateTime.Today);
+        var from = to.AddDays(-14);
+        var symbols = TickerLabels.Keys.ToArray();
+
+        try
+        {
+            var results = await Task.WhenAll(symbols.Select(s => MarketData.GetPricesAsync(s, from, to)));
+
+            _tickers = symbols
+                .Zip(results)
+                .Where(x => x.Second.Count >= 2)
+                .Select(x => new Ticker(
+                    x.First,
+                    x.Second[^1],
+                    (x.Second[^1].Close - x.Second[^2].Close) / x.Second[^2].Close))
+                .ToList();
+        }
+        catch (ApiException)
+        {
+            _tickersFailed = true;
+        }
+    }
+}
