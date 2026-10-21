@@ -7,9 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+
 builder.Services.AddHttpClient<IHeadlineService, GuardianService>(c =>
     c.BaseAddress = new Uri("https://content.guardianapis.com/"));
-
+builder.Services.AddHttpClient<IMarketDataService, FredService>(c =>
+    c.BaseAddress = new Uri("https://api.stlouisfed.org/fred/"));
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
