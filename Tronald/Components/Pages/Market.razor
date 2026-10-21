@@ -1,0 +1,95 @@
+@page "/market"
+@using Tronald.Exceptions
+@using Tronald.Models
+@using Tronald.Services
+@rendermode InteractiveServer
+@inject IMarketDataService MarketData
+
+<PageTitle>Markets · Tronald</PageTitle>
+<h3>Market prices</h3>
+
+<div class="d-flex gap-2 align-items-end mb-3">
+    <div>
+        <label class="form-label">Market</label>
+        <select class="form-select" @bind="_symbol">
+            @foreach (var s in Enum.GetValues<MarketSymbol>())
+            {
+                <option value="@s">@s.DisplayName()</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="form-label">From</label>
+        <input type="date" class="form-control" @bind="_from" />
+    </div>
+    <div>
+        <label class="form-label">To</label>
+        <input type="date" class="form-control" @bind="_to" />
+    </div>
+    <button class="btn btn-primary" @onclick="LoadAsync" disabled="@_loading">
+        @(_loading ? "Loading..." : "Load")
+    </button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_prices is { Count: 0 })
+{
+    <p>No prices for this period.</p>
+}
+else if (_prices is not null)
+{
+    var first = _prices[0];
+    var last = _prices[^1];
+    var change = (last.Close - first.Close) / first.Close;
+
+    <div class="row mb-3">
+        <div class="col">Latest: <strong>@last.Close</strong> (@last.Date)</div>
+        <div class="col">Low: <strong>@_prices.MinBy(p => p.Close)!.Close</strong></div>
+        <div class="col">High: <strong>@_prices.MaxBy(p => p.Close)!.Close</strong></div>
+        <div class="col">Change: <strong>@change.ToString("P2")</strong></div>
+    </div>
+
+    <table class="table table-sm">
+        <thead><tr><th>Date</th><th>Close</th></tr></thead>
+        <tbody>
+        @foreach (var p in _prices.OrderByDescending(p => p.Date).Take(30))
+        {
+            <tr><td>@p.Date</td><td>@p.Close</td></tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private MarketSymbol _symbol = MarketSymbol.WtiOil;
+    private DateOnly _to = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _from = DateOnly.FromDateTime(DateTime.Today).AddMonths(-6);
+
+    private IReadOnlyList<PricePoint>? _prices;
+    private string? _error;
+    private bool _loading;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            _prices = await MarketData.GetPricesAsync(_symbol, _from, _to);
+        }
+        catch (Exception ex) when (ex is ApiException or ArgumentException)
+        {
+            _error = ex.Message;
+            _prices = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
