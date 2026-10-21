@@ -2,11 +2,29 @@
 @using Tronald.Exceptions
 @using Tronald.Models
 @using Tronald.Services
-@attribute [StreamRendering]
+@rendermode InteractiveServer
 @inject IHeadlineService HeadlineService
 
 <PageTitle>Headlines · Tronald</PageTitle>
-<h3>Trump market headlines</h3>
+
+<span class="badge bg-dark mb-2">THE GUARDIAN OPEN PLATFORM</span>
+<h1 class="fw-bold">Headlines Feed</h1>
+<p class="text-muted">Trump coverage about oil, tariffs and markets from the last 3 months.</p>
+
+<div class="card-tronald d-flex flex-wrap gap-2 align-items-center mb-3">
+    <input class="form-control" style="max-width: 320px" placeholder="Search headlines..."
+           @bind="_search" @bind:event="oninput" />
+
+    <button class="btn btn-sm @(_section is null ? "btn-primary" : "btn-light")" @onclick="() => _section = null">All</button>
+    @foreach (var s in Sections)
+    {
+        <button class="btn btn-sm @(_section == s ? "btn-primary" : "btn-light")" @onclick="() => _section = s">@s</button>
+    }
+
+    <button class="btn btn-light ms-auto" @onclick="LoadAsync" disabled="@_loading">
+        <span class="bi bi-arrow-clockwise me-1"></span>@(_loading ? "Loading..." : "Refresh")
+    </button>
+</div>
 
 @if (_error is not null)
 {
@@ -14,44 +32,86 @@
 }
 else if (_headlines is null)
 {
-    <p>Loading headlines...</p>
+    <p class="text-muted">Loading headlines...</p>
 }
-else if (_headlines.Count == 0)
+else if (Filtered.Count == 0)
 {
-    <p>No headlines found for this period.</p>
+    <div class="card-tronald text-center py-5">
+        <span class="bi bi-newspaper fs-1 text-muted"></span>
+        <h5 class="mt-2">No headlines match your filters</h5>
+        <p class="text-muted">Try a different search or section.</p>
+        <button class="btn btn-primary" @onclick="ClearFilters">Clear filters</button>
+    </div>
 }
 else
 {
-    <table class="table">
-        <thead><tr><th>Date</th><th>Headline</th><th>Section</th></tr></thead>
-        <tbody>
-        @foreach (var h in _headlines)
-        {
-            <tr>
-                <td>@h.PublishedAt.ToString("yyyy-MM-dd")</td>
-                <td><a href="@h.Url" target="_blank">@h.Title</a></td>
-                <td>@h.Section</td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    <div class="card-tronald p-0 overflow-hidden">
+        <div class="d-flex justify-content-between align-items-center px-3 py-2 bg-light">
+            <strong>Headlines</strong>
+            <span class="mono small text-muted">@Filtered.Count of @_headlines.Count · newest first</span>
+        </div>
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+            <tr><th>Date</th><th>Headline</th><th>Section</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var h in Filtered)
+            {
+                <tr>
+                    <td class="mono text-nowrap">
+                        <div class="fw-bold">@h.PublishedAt.ToString("dd MMM yyyy")</div>
+                        <div class="small text-muted">@h.PublishedAt.ToString("HH:mm") UTC</div>
+                    </td>
+                    <td><a href="@h.Url" target="_blank" class="fw-semibold text-decoration-none">@h.Title</a></td>
+                    <td><span class="badge rounded-pill bg-light text-dark mono">@h.Section</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {
     private IReadOnlyList<Headline>? _headlines;
     private string? _error;
+    private bool _loading;
+    private string _search = "";
+    private string? _section;
 
-    protected override async Task OnInitializedAsync()
+    private IEnumerable<string> Sections =>
+        _headlines?.Select(h => h.Section).Distinct().Order() ?? Enumerable.Empty<string>();
+
+    private List<Headline> Filtered =>
+        (_headlines ?? [])
+            .Where(h => _section is null || h.Section == _section)
+            .Where(h => h.Title.Contains(_search, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
+        _loading = true;
+        _error = null;
         var to = DateOnly.FromDateTime(DateTime.Today);
         try
         {
             _headlines = await HeadlineService.SearchHeadlinesAsync(
-                "Trump AND (oil OR tariff OR market OR stocks)", to.AddYears(-2), to);
+                "Trump AND (oil OR tariff OR market OR stocks)", to.AddMonths(-3), to);
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
         }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ClearFilters()
+    {
+        _search = "";
+        _section = null;
     }
 }
