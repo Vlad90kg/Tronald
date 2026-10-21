@@ -58,3 +58,85 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+
+:root {
+    --t-navy: #0b1f3a;
+    --t-red: #c8102e;
+    --t-gold: #f6be39;
+    --t-green: #107c41;
+    --t-bg: #f5f6f8;
+    --t-border: #e2e8f0;
+}
+
+html, body {
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+body {
+    background: var(--t-bg);
+}
+
+h1, h2, h3, h4, h5 {
+    color: var(--t-navy);
+    font-weight: 700;
+}
+
+.mono {
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--t-navy);
+    --bs-btn-border-color: var(--t-navy);
+    --bs-btn-hover-bg: #163259;
+    --bs-btn-hover-border-color: #163259;
+}
+
+.btn-danger {
+    --bs-btn-bg: var(--t-red);
+    --bs-btn-border-color: var(--t-red);
+    --bs-btn-hover-bg: #a50b24;
+    --bs-btn-hover-border-color: #a50b24;
+}
+
+.card-tronald {
+    background: #fff;
+    border: 1px solid var(--t-border);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(11, 31, 58, 0.05);
+    padding: 1.25rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+}
+
+.stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--t-navy);
+}
+
+.chip-up {
+    color: var(--t-green);
+    background: #eaf5ee;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+}
+
+.chip-down {
+    color: var(--t-red);
+    background: #fcedef;
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+}
