@@ -10,8 +10,9 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddHttpClient<IHeadlineService, GuardianService>(c =>
     c.BaseAddress = new Uri("https://content.guardianapis.com/"));
-builder.Services.AddHttpClient<IMarketDataService, FredService>(c =>
+builder.Services.AddHttpClient<FredService>(c =>
     c.BaseAddress = new Uri("https://api.stlouisfed.org/fred/"));
+builder.Services.AddScoped<IMarketDataService, CachedMarketDataService>();
 
 builder.Services.AddSingleton<IImpactAnalyzer, ImpactAnalyzer>();
 var app = builder.Build();
