@@ -11,7 +11,7 @@
 <h3>Headline impact on markets</h3>
 <p class="text-muted">Which Trump headlines coincided with unusual market moves.</p>
 
-<div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+<div class="card-tronald d-flex flex-wrap gap-2 align-items-end mb-3">
     <div>
         <label class="form-label">Market</label>
         <select class="form-select" @bind="_symbol">
@@ -39,49 +39,91 @@
             <option value="12">Last year</option>
         </select>
     </div>
-    <button class="btn btn-primary" @onclick="AnalyzeAsync" disabled="@_loading">
-        @(_loading ? "Analysing..." : "Analyse")
+    <button class="btn btn-danger" @onclick="AnalyzeAsync" disabled="@_loading">
+        <span class="bi bi-lightning-charge me-1"></span>@(_loading ? "Analysing..." : "Analyse")
     </button>
 </div>
 
 @if (_error is not null)
 {
-    <div class="alert alert-danger">@_error</div>
+    <div class="alert alert-danger d-flex justify-content-between align-items-center">
+        <span>@_error</span>
+        <button class="btn btn-sm btn-danger" @onclick="AnalyzeAsync">Retry</button>
+    </div>
+}
+else if (_loading && _impacts is null)
+{
+    <div class="card-tronald text-center py-5">
+        <div class="spinner-border text-primary"></div>
+        <p class="text-muted mt-3 mb-0">Loading headlines and prices...</p>
+    </div>
 }
 else if (_impacts is null)
 {
-    <p>Pick a market and topic, then press Analyse.</p>
+    <p class="text-muted">Pick a market and topic, then press Analyse.</p>
 }
 else if (_impacts.Count == 0)
 {
-    <p>No headlines could be matched to market data for this period.</p>
+    <p class="text-muted">No headlines could be matched to market data for this period.</p>
 }
 else
 {
-    <table class="table table-hover align-middle">
-        <thead>
-        <tr>
-            <th>#</th><th>Date</th><th>Headline</th>
-            <th class="text-end">Before</th><th class="text-end">After</th>
-            <th class="text-end">Change</th><th class="text-end">Score</th><th>Impact</th>
-        </tr>
-        </thead>
-        <tbody>
-        @foreach (var (impact, index) in _impacts.Select((x, i) => (x, i)))
-        {
+    var highCount = _impacts.Count(i => i.Level == ImpactLevel.High);
+    var top = _impacts[0];
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card-tronald">
+                <div class="stat-label">Headlines matched</div>
+                <div class="stat-value">@_impacts.Count</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-tronald">
+                <div class="stat-label">High impact</div>
+                <div class="stat-value text-danger">@highCount</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card-tronald">
+                <div class="stat-label">Top score</div>
+                <div class="stat-value">@top.Score.ToString("0.0")×</div>
+                <div class="small text-muted text-truncate">@top.Headline.Title</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-tronald p-0 overflow-hidden">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
             <tr>
-                <td>@(index + 1)</td>
-                <td>@impact.Headline.PublishedAt.ToString("yyyy-MM-dd")</td>
-                <td><a href="@impact.Headline.Url" target="_blank">@impact.Headline.Title</a></td>
-                <td class="text-end">@impact.Before.Close</td>
-                <td class="text-end">@impact.After.Close</td>
-                <td class="text-end @(impact.Change < 0 ? "text-danger" : "text-success")">@impact.Change.ToString("P2")</td>
-                <td class="text-end">@impact.Score.ToString("0.0")×</td>
-                <td><span class="badge @BadgeClass(impact.Level)">@impact.Level</span></td>
+                <th>#</th><th>Date</th><th>Headline</th>
+                <th class="text-end">Before</th><th class="text-end">After</th>
+                <th class="text-end">Change</th><th class="text-end">Score</th><th>Impact</th>
             </tr>
-        }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+            @foreach (var (impact, index) in _impacts.Select((x, i) => (x, i)))
+            {
+                <tr>
+                    <td>@(index + 1)</td>
+                    <td class="text-nowrap mono">
+                        @impact.Headline.PublishedAt.ToString("dd MMM yyyy")
+                        <div class="small text-muted">@impact.Headline.PublishedAt.ToString("HH:mm") UTC</div>
+                    </td>
+                    <td><a href="@impact.Headline.Url" target="_blank">@impact.Headline.Title</a></td>
+                    <td class="text-end mono">@impact.Before.Close</td>
+                    <td class="text-end mono">@impact.After.Close</td>
+                    <td class="text-end">
+                        <span class="@(impact.Change < 0 ? "chip-down" : "chip-up")">@impact.Change.ToString("+0.00%;-0.00%")</span>
+                    </td>
+                    <td class="text-end mono">@impact.Score.ToString("0.0")×</td>
+                    <td><span class="badge @BadgeClass(impact.Level)">@impact.Level</span></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }
 
 @code {
