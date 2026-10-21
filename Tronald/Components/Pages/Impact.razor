@@ -1,0 +1,138 @@
+@page "/impact"
+@using Tronald.Exceptions
+@using Tronald.Models
+@using Tronald.Services
+@rendermode InteractiveServer
+@inject IHeadlineService HeadlineService
+@inject IMarketDataService MarketData
+@inject IImpactAnalyzer Analyzer
+
+<PageTitle>Impact · Tronald</PageTitle>
+<h3>Headline impact on markets</h3>
+<p class="text-muted">Which Trump headlines coincided with unusual market moves.</p>
+
+<div class="d-flex flex-wrap gap-2 align-items-end mb-3">
+    <div>
+        <label class="form-label">Market</label>
+        <select class="form-select" @bind="_symbol">
+            @foreach (var s in Enum.GetValues<MarketSymbol>())
+            {
+                <option value="@s">@s.DisplayName()</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="form-label">Topic</label>
+        <select class="form-select" @bind="_topic">
+            @foreach (var t in Topics.Keys)
+            {
+                <option value="@t">@t</option>
+            }
+        </select>
+    </div>
+    <div>
+        <label class="form-label">Period</label>
+        <select class="form-select" @bind="_months">
+            <option value="1">Last month</option>
+            <option value="3">Last 3 months</option>
+            <option value="6">Last 6 months</option>
+            <option value="12">Last year</option>
+        </select>
+    </div>
+    <button class="btn btn-primary" @onclick="AnalyzeAsync" disabled="@_loading">
+        @(_loading ? "Analysing..." : "Analyse")
+    </button>
+</div>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_impacts is null)
+{
+    <p>Pick a market and topic, then press Analyse.</p>
+}
+else if (_impacts.Count == 0)
+{
+    <p>No headlines could be matched to market data for this period.</p>
+}
+else
+{
+    <table class="table table-hover align-middle">
+        <thead>
+        <tr>
+            <th>#</th><th>Date</th><th>Headline</th>
+            <th class="text-end">Before</th><th class="text-end">After</th>
+            <th class="text-end">Change</th><th class="text-end">Score</th><th>Impact</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var (impact, index) in _impacts.Select((x, i) => (x, i)))
+        {
+            <tr>
+                <td>@(index + 1)</td>
+                <td>@impact.Headline.PublishedAt.ToString("yyyy-MM-dd")</td>
+                <td><a href="@impact.Headline.Url" target="_blank">@impact.Headline.Title</a></td>
+                <td class="text-end">@impact.Before.Close</td>
+                <td class="text-end">@impact.After.Close</td>
+                <td class="text-end @(impact.Change < 0 ? "text-danger" : "text-success")">@impact.Change.ToString("P2")</td>
+                <td class="text-end">@impact.Score.ToString("0.0")×</td>
+                <td><span class="badge @BadgeClass(impact.Level)">@impact.Level</span></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private static readonly Dictionary<string, string> Topics = new()
+    {
+        ["All market news"] = "Trump AND (oil OR tariff OR market OR stocks)",
+        ["Oil & energy"]    = "Trump AND (oil OR OPEC OR energy OR drilling)",
+        ["Tariffs & trade"] = "Trump AND (tariff OR tariffs OR trade)",
+        ["China"]           = "Trump AND China",
+        ["Federal Reserve"] = "Trump AND (Fed OR Powell OR rates)"
+    };
+
+    private MarketSymbol _symbol = MarketSymbol.WtiOil;
+    private string _topic = "All market news";
+    private int _months = 6;
+
+    private IReadOnlyList<HeadlineImpact>? _impacts;
+    private string? _error;
+    private bool _loading;
+
+    private async Task AnalyzeAsync()
+    {
+        _loading = true;
+        _error = null;
+
+        var to = DateOnly.FromDateTime(DateTime.Today);
+        var from = to.AddMonths(-_months);
+
+        try
+        {
+            var headlinesTask = HeadlineService.SearchHeadlinesAsync(Topics[_topic], from, to);
+            var pricesTask = MarketData.GetPricesAsync(_symbol, from.AddDays(-7), to);
+            await Task.WhenAll(headlinesTask, pricesTask);
+
+            _impacts = Analyzer.Analyze(await headlinesTask, await pricesTask);
+        }
+        catch (Exception ex) when (ex is ApiException or ArgumentException)
+        {
+            _error = ex.Message;
+            _impacts = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string BadgeClass(ImpactLevel level) => level switch
+    {
+        ImpactLevel.High => "bg-danger",
+        ImpactLevel.Medium => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+}
