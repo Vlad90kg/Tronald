@@ -38,6 +38,10 @@ public abstract class ApiClientBase(HttpClient http)
 
         if (!response.IsSuccessStatusCode)
             throw new ApiException($"{ProviderName} API returned an error ({(int)response.StatusCode}).", response.StatusCode);
+        
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (mediaType is not null && !mediaType.Contains("json"))
+            throw new ApiException($"{ProviderName} is temporarily unavailable (possibly down for maintenance). Try again later.");
 
         try
         {
