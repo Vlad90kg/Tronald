@@ -49,7 +49,7 @@ public class GuardianServiceTests
 
         await service.SearchHeadlinesAsync("Trump AND oil", From, To);
 
-        var url = handler.LastRequest!.RequestUri!.ToString();
+        var url = handler.LastRequest!.RequestUri!.AbsoluteUri;
         Assert.Contains("q=Trump%20AND%20oil", url);
         Assert.Contains("from-date=2026-10-01", url);
         Assert.Contains("to-date=2026-10-20", url);
